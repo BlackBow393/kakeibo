@@ -7,6 +7,9 @@ def save_attachments_from_email(settings):
     outlook = win32com.client.Dispatch("Outlook.Application")
     namespace = outlook.GetNamespace("MAPI")
 
+    # 初期処理の遅延を追加（Outlookの起動待機）
+    time.sleep(5)  # 5秒待機（必要に応じて調整）
+
     # 受信トレイを取得
     inbox = namespace.GetDefaultFolder(6)  # 受信トレイ
     messages = inbox.Items
@@ -28,15 +31,22 @@ def save_attachments_from_email(settings):
                             attachment.SaveAsFile(attachment_path)
                             print(f"添付ファイル '{attachment_name}' を保存しました: {attachment_path}")
 
-                            # 保存されたかどうかを確認
-                            if os.path.exists(attachment_path):
-                                print(f"添付ファイルが正常に保存されました: {attachment_path}")
-                            else:
+                            # 添付ファイルが保存されるまで少し待機
+                            wait_time = 3  # 3秒間待機（必要に応じて調整）
+                            for _ in range(wait_time):
+                                if os.path.exists(attachment_path):
+                                    print(f"添付ファイルが正常に保存されました: {attachment_path}")
+                                    break
+                                time.sleep(1)  # 1秒待機して再確認
+
+                            # 保存が確認できない場合はエラーメッセージを出力
+                            if not os.path.exists(attachment_path):
                                 print(f"添付ファイルの保存に失敗しました: {attachment_path}")
                                 continue  # 再度実行する場合、ここで処理を継続
 
                     # メールを既読にする（必要に応じて）
                     msg.UnRead = False
+
 
 # 保存されたか確認して、失敗した場合に再度実行
 def run_save_attachments(settings, retries=3, delay=5):
