@@ -1,26 +1,19 @@
-import time
 from load_email_settings import load_email_settings
-from save_attachments import run_save_attachments
+from save_attachments import save_attachments_from_email, run_save_attachments  # run_save_attachmentsもインポート
 import os
 
-def main_loop(interval_minutes=60):
-    current_dir = os.path.dirname(__file__)
-    excel_file = os.path.join(current_dir, '受信設定ファイル_ver.1.0.0.xlsx')
+# main.py が実行されるディレクトリを基準に相対パスで Excel ファイルを探す
+current_dir = os.path.dirname(__file__)
 
-    if not os.path.exists(excel_file):
-        print(f"エラー: {excel_file} が見つかりません。ファイルが正しい場所にあることを確認してください。")
-        return
+# 相対パスで '受信設定ファイル_ver.1.0.0.xlsx' を探す
+excel_file = os.path.join(current_dir, '受信設定ファイル_ver.1.0.0.xlsx')
 
+# Excel ファイルが存在するか確認
+if os.path.exists(excel_file):
+    # 設定を読み込む
     settings = load_email_settings(excel_file)
-
-    while True:
-        try:
-            print("メール確認・添付ファイル処理を実行中...")
-            run_save_attachments(settings)
-        except Exception as e:
-            print(f"エラーが発生しました: {e}")
-        print(f"{interval_minutes} 分後に再実行します...")
-        time.sleep(interval_minutes * 60)
-
-if __name__ == '__main__':
-    main_loop()
+    
+    # 添付ファイルの保存処理を再試行機能付きで実行
+    run_save_attachments(settings)
+else:
+    print(f"エラー: {excel_file} が見つかりません。ファイルが正しい場所にあることを確認してください。")
