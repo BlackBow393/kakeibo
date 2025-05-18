@@ -3,7 +3,10 @@ import subprocess
 
 # main.pyを呼び出し実行する関数
 def run_main():
-    subprocess.run(["C:\\Users\\t9374\\OneDrive\\デスクトップ\\個人家計簿\\automation_env\\Scripts\\python.exe","main.py"])
+    subprocess.run([
+    "C:\\Users\\t9374\\OneDrive\\デスクトップ\\個人家計簿\\automation_env\\Scripts\\python.exe",
+    "C:\\Users\\t9374\\OneDrive\\デスクトップ\\個人家計簿\\main.py"
+])
 
 scheduler = BlockingScheduler()
 
