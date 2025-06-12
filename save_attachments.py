@@ -1,74 +1,67 @@
-import win32com.client
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+import base64
 import os
-import time
+
+def base64_decode_file(data):
+    return base64.urlsafe_b64decode(data.encode('UTF-8'))
 
 def save_attachments_from_email(settings):
-    # Outlookオブジェクトを取得
-    outlook = win32com.client.Dispatch("Outlook.Application")
-    namespace = outlook.GetNamespace("MAPI")
+    creds = Credentials.from_authorized_user_file('token.json', ['https://mail.google.com/'])
+    service = build('gmail', 'v1', credentials=creds)
 
-    # 初期処理の遅延を追加（Outlookの起動待機）
-    time.sleep(5)  # 5秒待機（必要に応じて調整）
+    # 受信メールを検索（全件、または件名に基づいて絞り込み）
+    for subject, save_folder in settings:
+        query = f"subject:{subject}"
+        messages_response = service.users().messages().list(userId='me', q=query).execute()
+        messages = messages_response.get('messages', [])
 
-    # 受信トレイを取得
-    inbox = namespace.GetDefaultFolder(6)  # 受信トレイ
-    messages = inbox.Items
-    messages.Sort("[ReceivedTime]", True)  # 新しい順に並べ替え
+        for message in messages:
+            m_data = service.users().messages().get(userId='me', id=message['id']).execute()
+            payload = m_data.get('payload', {})
 
-    # 設定に基づいてメールを処理
-    for msg in messages:
-        if msg.UnRead:  # 未読のメールのみ処理
-            # 設定に基づいて処理
-            for subject, save_folder in settings:
-                if subject in msg.Subject:  # 件名が一致した場合
-                    # 添付ファイルの処理
-                    if msg.Attachments.Count > 0:
-                        for attachment in msg.Attachments:
-                            attachment_name = attachment.FileName
-                            attachment_path = os.path.join(save_folder, attachment_name)
+            # パートに添付ファイルがあるか確認
+            parts = payload.get('parts', [])
+            for part in parts:
+                filename = part.get("filename")
+                body = part.get("body", {})
+                attachment_id = body.get("attachmentId")
 
-                            # 添付ファイルを指定したパスに保存
-                            attachment.SaveAsFile(attachment_path)
-                            print(f"添付ファイル '{attachment_name}' を保存しました: {attachment_path}")
+                if filename and attachment_id:
+                    res = service.users().messages().attachments().get(
+                        userId='me',
+                        messageId=message['id'],
+                        id=attachment_id
+                    ).execute()
+                    data = res.get('data')
+                    if data:
+                        file_data = base64_decode_file(data)
+                        os.makedirs(save_folder, exist_ok=True)
+                        filepath = os.path.join(save_folder, filename)
+                        with open(filepath, 'wb') as f:
+                            f.write(file_data)
+                        print(f"保存済み: {filepath}")
 
-                            # 添付ファイルが保存されるまで少し待機
-                            wait_time = 3  # 3秒間待機（必要に応じて調整）
-                            for _ in range(wait_time):
-                                if os.path.exists(attachment_path):
-                                    print(f"添付ファイルが正常に保存されました: {attachment_path}")
-                                    break
-                                time.sleep(1)  # 1秒待機して再確認
-
-                            # 保存が確認できない場合はエラーメッセージを出力
-                            if not os.path.exists(attachment_path):
-                                print(f"添付ファイルの保存に失敗しました: {attachment_path}")
-                                continue  # 再度実行する場合、ここで処理を継続
-
-                    # メールを既読にする（必要に応じて）
-                    msg.UnRead = False
-
-
-# 保存されたか確認して、失敗した場合に再度実行
 def run_save_attachments(settings, retries=3, delay=5):
+    import time
     attempt = 0
     while attempt < retries:
         print(f"{attempt + 1}回目の実行中...")
         save_attachments_from_email(settings)
-        
-        # 添付ファイルが保存されているかを確認
+
+        # 保存チェック
         saved_files = []
         for subject, save_folder in settings:
-            for filename in os.listdir(save_folder):
-                saved_files.append(filename)
-        
-        # 保存されたファイルがあるかチェック
+            if os.path.exists(save_folder):
+                saved_files.extend(os.listdir(save_folder))
+
         if saved_files:
-            print(f"保存されたファイル: {saved_files}")
+            print("保存されたファイル:", saved_files)
             break
         else:
-            print("添付ファイルが保存されていませんでした。再試行します。")
+            print("ファイルが保存されていません。再試行します...")
+            time.sleep(delay)
             attempt += 1
-            time.sleep(delay)  # 再試行の前に待機
 
     if attempt == retries:
-        print("指定した回数の再試行後もファイルが保存されませんでした。")
+        print("指定回数再試行してもファイルが保存されませんでした。")

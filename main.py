@@ -1,19 +1,19 @@
 from load_email_settings import load_email_settings
-from save_attachments import save_attachments_from_email, run_save_attachments  # run_save_attachmentsもインポート
+from save_attachments import run_save_attachments
 import os
 
-# main.py が実行されるディレクトリを基準に相対パスで Excel ファイルを探す
+# 現在のスクリプトのディレクトリを取得
 current_dir = os.path.dirname(__file__)
 
-# 相対パスで '受信設定ファイル_ver.1.0.0.xlsx' を探す
+# Excel 設定ファイルのパス
 excel_file = os.path.join(current_dir, '受信設定ファイル_ver.1.0.0.xlsx')
 
-# Excel ファイルが存在するか確認
+# Excelファイルが存在するかをチェック
 if os.path.exists(excel_file):
-    # 設定を読み込む
+    # 件名と保存先ディレクトリを読み込み
     settings = load_email_settings(excel_file)
     
-    # 添付ファイルの保存処理を再試行機能付きで実行
+    # Gmail API を使って添付ファイルを保存（再試行あり）
     run_save_attachments(settings)
 else:
-    print(f"エラー: {excel_file} が見つかりません。ファイルが正しい場所にあることを確認してください。")
+    print(f"エラー: {excel_file} が見つかりません。パスを確認してください。")
